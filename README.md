@@ -1,6 +1,6 @@
 # Claude Workflow Skills
 
-A Claude Code plugin providing 6 workflow skills for session management, git worktrees, security, brainstorming, notifications, and changelog management.
+A Claude Code plugin marketplace providing 6 workflow skills for session management, git worktrees, security, brainstorming, notifications, and changelog management.
 
 ## Skills
 
@@ -15,17 +15,44 @@ A Claude Code plugin providing 6 workflow skills for session management, git wor
 
 ## Installation
 
-### Option A: Local plugin directory
+### From GitHub (as a marketplace)
 
 ```bash
-claude --plugin-dir /path/to/claude-workflow-skills
+# Inside Claude Code:
+/plugin marketplace add YOUR_USERNAME/claude-workflow-skills
+
+# Then install the plugin:
+/plugin install workflow-skills@lc-workflow
 ```
 
-### Option B: Clone from GitHub
+### From a local directory
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/claude-workflow-skills.git
-claude --plugin-dir ./claude-workflow-skills
+# Inside Claude Code:
+/plugin marketplace add /path/to/claude-workflow-skills
+
+# Then install the plugin:
+/plugin install workflow-skills@lc-workflow
+```
+
+### Auto-install for a project
+
+Add to your project's `.claude/settings.json` so collaborators get prompted automatically:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "lc-workflow": {
+      "source": {
+        "source": "github",
+        "repo": "YOUR_USERNAME/claude-workflow-skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "workflow-skills@lc-workflow": true
+  }
+}
 ```
 
 ## Usage
@@ -43,7 +70,7 @@ Once installed, skills are available as slash commands:
 
 ## Hooks
 
-The plugin includes two hooks (defined in `hooks/hooks.json`):
+The plugin includes two hooks:
 
 - **SessionStart**: Reminds Claude to invoke the `run-every-session` skill at the start of every session.
 - **Stop**: Runs `check-changelog.sh` to block stopping if a feature branch has commits but no changelog file.
@@ -56,6 +83,28 @@ The plugin includes two hooks (defined in `hooks/hooks.json`):
 4. **During development** → `security` enforces best practices
 5. **Task complete** → `run-every-session` Phase 2 writes the changelog
 6. **Batch complete** → `consolidate-changelogs` merges everything into CLAUDE.md
+
+## Structure
+
+```
+claude-workflow-skills/
+├── .claude-plugin/
+│   └── marketplace.json          # Marketplace catalog
+├── plugins/
+│   └── workflow-skills/          # The plugin
+│       ├── .claude-plugin/
+│       │   └── plugin.json       # Plugin manifest
+│       ├── skills/               # 6 skills with SKILL.md + scripts
+│       │   ├── run-every-session/
+│       │   ├── using-git-worktrees/
+│       │   ├── security/
+│       │   ├── brainstorming/
+│       │   ├── claude-code-notify/
+│       │   └── consolidate-changelogs/
+│       └── hooks/
+│           └── hooks.json
+└── README.md
+```
 
 ## Requirements
 

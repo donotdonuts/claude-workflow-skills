@@ -1,0 +1,20 @@
+{
+  "name": "lc-workflow",
+  "owner": {
+    "name": "Liang Chen"
+  },
+  "metadata": {
+    "description": "Session workflow, git worktrees, security, brainstorming, notifications, and changelog management for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "workflow-skills",
+      "source": "./plugins/workflow-skills",
+      "description": "Session workflow, git worktrees, security, brainstorming, notifications, and changelog management",
+      "version": "1.0.0",
+      "license": "MIT",
+      "keywords": ["workflow", "git", "worktrees", "security", "brainstorming", "notifications", "changelog"],
+      "category": "productivity"
+    }
+  ]
+}
