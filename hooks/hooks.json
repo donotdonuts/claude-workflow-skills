@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'IMPORTANT: Invoke the /workflow-skills:run-every-session skill NOW before doing any work. This sets up the feature branch, worktree, and renames the terminal.'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/skills/run-every-session/check-changelog.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
