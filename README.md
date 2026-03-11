@@ -19,7 +19,7 @@ A Claude Code plugin marketplace providing 6 workflow skills for session managem
 
 ```bash
 # Inside Claude Code:
-/plugin marketplace add YOUR_USERNAME/claude-workflow-skills
+/plugin marketplace add donotdonuts/claude-workflow-skills
 
 # Then install the plugin:
 /plugin install workflow-skills@lc-workflow
@@ -45,7 +45,7 @@ Add to your project's `.claude/settings.json` so collaborators get prompted auto
     "lc-workflow": {
       "source": {
         "source": "github",
-        "repo": "YOUR_USERNAME/claude-workflow-skills"
+        "repo": "donotdonuts/claude-workflow-skills"
       }
     }
   },
