@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 /**
- * shift-portrait.js — align a portrait's paper tone to the page cream (#fbf7eb).
+ * shift-portrait.js — align a portrait's paper/background tone to the page color.
  *
- * Reads the four corner blocks of a source JPEG to estimate the paper color,
- * computes the per-channel delta to #fbf7eb, and applies that uniform shift
- * to every pixel. Preserves all halftone texture — the dark hedcut strokes
- * remain dark, the paper just slides to match the page.
+ * Reads the four corner blocks of a source JPEG to estimate the background
+ * color, computes the per-channel delta to the target hex, and applies that
+ * uniform shift to every pixel. Preserves texture and shading — only the
+ * paper tone slides to match.
  *
  * Usage:
- *   node shift-portrait.js <source.jpg> <output.jpg>
+ *   node shift-portrait.js <source.jpg> <output.jpg> [target-hex]
+ *
+ * Example:
+ *   node shift-portrait.js raw.jpg assets/portrait.jpg "#fbf7eb"
+ *   node shift-portrait.js raw.jpg assets/portrait.jpg "#0f1115"   # dark theme
  *
  * Dependencies:
  *   npm install jimp@0.22
@@ -16,21 +20,28 @@
 
 const Jimp = require("jimp");
 
-const TARGET = { r: 0xfb, g: 0xf7, b: 0xeb };     // #fbf7eb
-const MAX_SIDE = 720;                              // longest side after resize
+const DEFAULT_TARGET = "#fbf7eb";
+const MAX_SIDE = 720;
+
+function parseHex(hex) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!m) throw new Error(`not a 6-digit hex: ${hex}`);
+  const n = parseInt(m[1], 16);
+  return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff };
+}
 
 async function main() {
-  const [, , src, out] = process.argv;
+  const [, , src, out, targetArg] = process.argv;
   if (!src || !out) {
-    console.error("usage: node shift-portrait.js <source.jpg> <output.jpg>");
+    console.error("usage: node shift-portrait.js <source.jpg> <output.jpg> [target-hex]");
     process.exit(1);
   }
+  const TARGET = parseHex(targetArg || DEFAULT_TARGET);
 
   const img = await Jimp.read(src);
   const w = img.bitmap.width;
   const h = img.bitmap.height;
 
-  // Sample 20x20 blocks at each corner for a robust paper-tone estimate
   const boxes = [
     { x0: 0,       y0: 0,       x1: 20,  y1: 20 },
     { x0: w - 20,  y0: 0,       x1: w,   y1: 20 },
@@ -47,10 +58,11 @@ async function main() {
     }
   }
   const avg = { r: rSum / n, g: gSum / n, b: bSum / n };
-  const toHex = (n) => Math.round(n).toString(16).padStart(2, "0");
-  const avgHex = `#${toHex(avg.r)}${toHex(avg.g)}${toHex(avg.b)}`;
-  console.log(`paper avg: rgb(${avg.r.toFixed(0)},${avg.g.toFixed(0)},${avg.b.toFixed(0)}) ${avgHex}`);
-  console.log(`target   : rgb(${TARGET.r},${TARGET.g},${TARGET.b}) #fbf7eb`);
+  const toHex = (v) => Math.round(v).toString(16).padStart(2, "0");
+  console.log(
+    `paper avg: rgb(${avg.r.toFixed(0)},${avg.g.toFixed(0)},${avg.b.toFixed(0)}) #${toHex(avg.r)}${toHex(avg.g)}${toHex(avg.b)}`
+  );
+  console.log(`target   : rgb(${TARGET.r},${TARGET.g},${TARGET.b}) #${toHex(TARGET.r)}${toHex(TARGET.g)}${toHex(TARGET.b)}`);
 
   const dR = TARGET.r - avg.r;
   const dG = TARGET.g - avg.g;
@@ -64,7 +76,6 @@ async function main() {
     d[idx + 2] = Math.max(0, Math.min(255, d[idx + 2] + dB));
   });
 
-  // Resize longest side down to MAX_SIDE so the committed copy stays small
   if (Math.max(w, h) > MAX_SIDE) {
     if (w >= h) img.resize(MAX_SIDE, Jimp.AUTO);
     else        img.resize(Jimp.AUTO, MAX_SIDE);
