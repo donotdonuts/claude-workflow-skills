@@ -1,15 +1,25 @@
 ---
 name: rephrase
-description: "Invoke ONLY when the user explicitly types /rephrase or asks Claude to rephrase/rewrite their message in native English. Restates the user's latest message in natural, native-English phrasing, highlights 2–3 vocabulary or grammar upgrades, then answers the original request. Do NOT auto-invoke."
+description: "Invoke ONLY when the user explicitly types /rephrase or asks Claude to rephrase/rewrite their message in native English. Restates the user's latest message in natural, native-English phrasing, highlights 2–3 vocabulary or grammar upgrades, AND THEN (in the same response) fully answers the original request. Do NOT auto-invoke. Do NOT stop after rephrasing."
 ---
 
 # Rephrase
 
-Help the user build native-English vocabulary and phrasing by showing how a fluent speaker would express the same idea — *then* answer their question.
+Help the user build native-English vocabulary and phrasing by showing how a fluent speaker would express the same idea — *and then* answer their question in the same response.
 
 ## When to run
 
 Only when the user explicitly invokes this skill (e.g. types `/rephrase` or asks "rephrase what I said"). Never auto-trigger from ordinary messages, even if the phrasing sounds non-native.
+
+## CRITICAL: One response, both halves
+
+The rephrase is a **prelude**, not a substitute for the answer. A complete response to `/rephrase` always contains **both** the rephrase block **and** the full answer/action for the user's underlying request — in a single reply.
+
+- Do **NOT** stop after the rephrase and wait for the user to re-ask.
+- Do **NOT** treat the rephrase as a clarification step. The user's request is already clear — the rephrase is just a vocabulary lesson layered on top.
+- After the `---` divider, continue exactly as you would have if the user had never typed `/rephrase`: run tools, write code, answer the question, whatever the request requires.
+
+If you find yourself ending a `/rephrase` response at the divider, you are doing it wrong. Keep going.
 
 ## Process
 
@@ -19,7 +29,7 @@ Only when the user explicitly invokes this skill (e.g. types `/rephrase` or asks
    - the original fragment → the upgraded fragment
    - one short line on *why* (wrong word, awkward collocation, filler, redundancy, non-native word order, etc.)
 
-3. **Answer** — Then address the actual request as you normally would.
+3. **Answer** — Then, **in the same response**, do whatever the user asked: answer the question, run the tools, write the code, etc. Don't wait for re-confirmation.
 
 ## Output format
 
