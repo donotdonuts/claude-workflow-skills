@@ -11,8 +11,10 @@ Walk a new user through shipping their own portfolio at `https://<their-username
 
 - **Single-page static site**, no bundler. GitHub Pages serves `main` at the repo root.
 - **Hero** — their portrait + name + one-line location + one-line tagline.
-- **Projects section** with a faded vertical timeline in the section head (wrench icons for work, book icons for education; each stop shows company, role, date, location) and a grid of project cards in the body. Both are generated from the user's resume.
-- **Chatbot** (optional) — DeepSeek's OpenAI-compatible API behind a Cloudflare Worker that holds the API key. User picks the bot's name; agent proposes a matching emoji avatar. Bot replies render markdown. Two-layer rate limit.
+- **Projects section** with a faded vertical timeline in the section head (wrench icons for work, book icons for education, sparkle icons for vibe / side-project stops; each stop shows company, role, date, location) and a grid of project cards in the body — both generated from the user's resume.
+- **Timeline ↔ cards filter** — hover or keyboard-focus a timeline stop to hide unrelated project cards; click to pin the filter (click again to clear). Only stops that have ≥1 tied card become interactive; others stay inert.
+- **Folded cards** — each project card shows only its category + title + tool tags by default; the summary paragraph and metric row appear on hover / focus, keeping the grid scannable.
+- **Chatbot** (optional) — a floating bottom-right launcher + pop-out panel (not an inline page section) backed by DeepSeek's OpenAI-compatible API behind a Cloudflare Worker that holds the API key. User picks the bot's name; agent proposes a matching emoji avatar. Bot replies render markdown. Two-layer rate limit.
 - **Connect section** — email + the user's social URLs.
 
 ## Prerequisites
@@ -153,11 +155,13 @@ Use the resume + other inputs from Step 1 to populate `index.html`:
    - `<p class="hero-location">` ← location phrase
    - `<p class="hero-tagline">` ← tagline
 
-3. **Timeline** — parse the resume into stops. One `<li class="tl-stop">` per role AND per degree. **Order present → earliest (top to bottom in DOM).** For each stop:
+3. **Timeline** — parse the resume into stops. One `<li class="tl-stop">` per role, per degree, AND per ongoing personal side-project category the user wants to surface. **Order present → earliest (top to bottom in DOM).** Pick a short `data-experience` slug for each (e.g. `mars`, `vibe`, `coach`, `gatech`) — it's what the filter uses to tie stops to cards. Add `tabindex="0"` only on stops that have ≥1 tied project card (others stay inert).
+
    ```html
-   <li class="tl-stop tl-stop-work">   <!-- or tl-stop-edu -->
+   <li class="tl-stop tl-stop-work" data-experience="<slug>" tabindex="0">
+     <!-- tl-stop-work | tl-stop-edu | tl-stop-vibe   (pick one) -->
      <svg class="tl-icon tl-icon-work" aria-hidden="true">
-       <use href="#icon-wrench"/>       <!-- or #icon-book -->
+       <use href="#icon-wrench"/>       <!-- #icon-wrench | #icon-book | #icon-sparkle -->
      </svg>
      <div class="tl-info">
        <strong>Company / School</strong>
@@ -168,9 +172,12 @@ Use the resume + other inputs from Step 1 to populate `index.html`:
    </li>
    ```
 
-4. **Projects** — six `<article class="project-card">` blocks, generated from notable projects/achievements in the resume. Each:
+   Drop `tabindex="0"` on education / old-role stops that don't have project cards tied to them — `js/main.js` auto-detects those at load and leaves them non-interactive.
+
+4. **Projects** — ~six `<article class="project-card">` blocks, generated from notable projects/achievements in the resume. Each card MUST carry a `data-experience` slug matching the stop it came from, or it won't participate in the filter:
+
    ```html
-   <article class="project-card">
+   <article class="project-card" data-experience="<slug>">
      <header class="project-head">
        <span class="project-tag">Category</span>
        <h3>Project Title</h3>
@@ -183,9 +190,10 @@ Use the resume + other inputs from Step 1 to populate `index.html`:
      <ul class="tag-list small"><li>Tool</li><li>Tool</li></ul>
    </article>
    ```
-   Use `<dd class="up">` / `<dd class="down">` to colour metrics.
 
-5. **Chat greeting** (inside `<div class="chat-log">`) — rewrite using the chosen bot name + avatar emoji. Format:
+   Use `<dd class="up">` / `<dd class="down">` to colour metrics. Cards render **folded** by default — only the tag, title, and tool tags are visible until hover / focus-within reveals the summary + metrics. Keep summaries tight; they only exist to reward a hover.
+
+5. **Chat greeting** — the bot's opening message is inline HTML inside `#chat-panel` in `index.html` (inside the panel's `<div class="chat-log">`), so it renders instantly when the user first opens the pop-out. Rewrite it using the chosen bot name + avatar emoji. Format:
    ```html
    <div class="chat-msg chat-msg-bot">
      <span class="chat-avatar" aria-label="<Bot Name>">EMOJI</span>
@@ -292,12 +300,33 @@ Live at `https://<username>.github.io/` within ~60 seconds.
 Every section uses `.section-grid: 280px 1fr`. The 280px column fits the longest timeline label. Tighten to 240px if all labels are short, widen to 320px if long.
 
 ### Timeline
-- Lives inside the Projects `section-head`, just below the title, at `opacity: 0.45`. Hover bumps to 0.95.
+- Lives inside the Projects `section-head`, just below the title, at `opacity: 0.45`. Hover, focus, or an active filter bumps it to 0.95.
 - **DOM order = visual top-to-bottom order.** Present → earliest. NOT proportional to time — evenly distributed via flex `gap`.
-- Icons defined once as `<symbol id="icon-*">` in the SVG sprite right after `<header>`. To add a new icon category:
+- Three icon kinds out of the box: `#icon-wrench` (work, `.tl-stop-work`), `#icon-book` (education, `.tl-stop-edu`), `#icon-sparkle` (vibe / side-project, `.tl-stop-vibe`). All three `<symbol>` definitions live in the SVG sprite right after `<header>`. To add a new icon category:
   1. Add a `<symbol id="icon-foo">` with your SVG path
   2. Add `.tl-icon-foo { color: var(--ink-mute); }`
   3. Reference with `<svg class="tl-icon tl-icon-foo"><use href="#icon-foo"/></svg>`
+- Every stop carries `data-experience="<slug>"`; stops whose slug matches at least one project card also get `tabindex="0"` so `js/main.js` can make them filter-interactive.
+
+### Project filter (click + hover)
+Driven entirely by `js/main.js`, zero config — it scans the DOM on load and wires handlers only where they apply.
+
+- On load, every stop whose `data-experience` slug is present on at least one `.project-card` gets `.tl-stop-has-projects` + `role="button"` + `aria-pressed="false"`. Stops without tied cards stay inert.
+- **Hover / focus** an interactive stop → temp-filter: non-matching cards become `.is-dim` (the grid adds `.is-filtering`, which CSS translates into `display: none` on dimmed cards — they're removed from layout, not just faded).
+- **Click** (or `Enter` / `Space`) → lock: stop gets `.is-locked`, full opacity, ink-coloured icon, underlined company name. Click the same stop again to clear; click another to switch.
+- While locked, hovering a different stop previews its cards; `mouseleave` on the rail (or `focusout` out of it) snaps back via `restoreLockedView()`.
+- **Wiring a new experience is purely markup:** add `data-experience="<slug>"` to both the stop and every tied card, plus `tabindex="0"` on the stop. No JS changes.
+
+### Folded project cards
+Each card renders collapsed: `project-tag` + `h3` + `.tag-list.small` only. The summary `<p>` and `.project-metrics` row appear on `:hover` / `:focus-within`. Pure CSS — `.project-card > p { display: none }` flips to `display: block`; `.project-metrics` flips to `display: flex`. `.project-grid` uses `align-items: start` so an expanded card doesn't force its row neighbours taller. The fold state composes cleanly with the filter — `.is-dim` cards are `display: none`, so they never expand.
+
+### Chatbot UI: floating launcher + panel
+The chatbot is **not** an inline page section — it's a floating widget that overlays every page. Three siblings live after `<footer>` in `index.html`:
+- `#chat-launcher` — fixed bottom-right circular button (56 px, ink background) with the avatar emoji + a soft pulse ring. Always visible.
+- `#chat-panel` — fixed pop-out panel above the launcher, starts with the `hidden` attribute. Contains the panel header (avatar + bot name + subtitle + `×` close) and the existing `#chat-widget` (log, form, hint, suggestion chips). The initial bot greeting is inline HTML inside this panel so it ships instantly on page load.
+- `#chat-nudge` — a pill floating just left of the launcher with a triangular tail pointing at it (`pointer-events: none` so it never blocks the click). Dismisses the first time the panel opens; CSS hides it entirely below 480 px.
+
+Open / close is wired in `js/chatbot.js`: click `#chat-launcher` toggles; click `#chat-close` or press `Escape` closes. `openPanel()` manages `hidden`, `aria-expanded`, focus, and scroll-to-bottom; `closePanel()` restores focus to the launcher. The site `<nav>` only links Home / Projects / Connect — no "Ask" entry, since the launcher is always reachable.
 
 ### Chatbot flow
 Client → Cloudflare Worker → DeepSeek's `chat/completions`. Worker holds the API key as a secret, enforces CORS (comma-separated `ALLOWED_ORIGIN`), sanitises + caps messages (≤20 msgs, ≤2000 chars), applies a per-IP sliding-window rate limit. Client has a 3-second cooldown. `SYSTEM_PROMPT` is the knowledge base.
@@ -306,24 +335,37 @@ Client → Cloudflare Worker → DeepSeek's `chat/completions`. Worker holds the
 
 - **Bot bubble whitespace** — do NOT put `white-space: pre-wrap` on `.chat-bubble`. Bot replies render structured markdown HTML; pre-wrap preserves source indentation and creates huge blank gaps. Scope it to user bubbles only.
 - **Axis-through-icon bug** — the timeline axis `<div>` must come BEFORE `<ol class="tl-stops">` in DOM order, AND markers need `z-index: 1`. Otherwise the line paints on top and bisects every icon.
+- **`data-experience` slug drift** — the slug on a `.tl-stop` must match the slug on every card it should filter to, character-for-character. A typo on either side silently makes the stop inert (no cards → no `.tl-stop-has-projects` → no handlers) or orphans cards so they never reappear under any filter. Pick slugs in Step 5 and reuse them verbatim.
+- **`tabindex="0"` only where it matters** — only add `tabindex="0"` to stops that have ≥1 tied card. Adding it to purely-informational stops (old roles, degrees with no project) makes them tab-focusable and advertises interactivity the JS never wires up.
+- **Folded-card summaries are load-bearing short** — since the summary only appears on hover / focus, treat it as a reward, not the main copy. Put the important info in the title + metrics, which are always visible.
 - **Worker `package.json` type** — must be `"module"`, not `"commonjs"`.
 - **CORS list format** — `ALLOWED_ORIGIN` in `wrangler.toml` is comma-separated. Include local dev origins so local preview can reach the live worker.
 - **Repo name** — GitHub Pages user pages must be `<username>.github.io` exactly.
 - **Scrollbar theming** — the `::-webkit-scrollbar` / Firefox `scrollbar-color` rules use `--border` / `--bg` tokens, so they auto-update when you apply a new palette.
-- **Three bot-name places** — if you rename the bot, update all three: `js/chatbot.js` (`AVATAR` + `AVATAR_LABEL`), `index.html` (static greeting + `aria-label`), `worker/worker.js` (`SYSTEM_PROMPT`). Miss any and the bot will contradict itself.
+- **Four bot-name places** — if you rename the bot, update all four: `js/chatbot.js` (`AVATAR` + `AVATAR_LABEL`), `index.html` static greeting + `#chat-launcher` / `#chat-panel` header (avatar emoji, aria-labels, title, subtitle, nudge copy), and `worker/worker.js` (`SYSTEM_PROMPT`). Miss any and the bot will contradict itself.
 
 ## File map
 
 ```
-index.html              Single-page site — all copy
-css/styles.css          All styles; design tokens in :root
+index.html              Single-page site — all copy, plus the floating
+                        #chat-launcher / #chat-panel / #chat-nudge siblings
+                        after <footer>, and the SVG sprite with
+                        #icon-wrench / #icon-book / #icon-sparkle after <header>
+css/styles.css          All styles; design tokens in :root; .is-filtering /
+                        .is-dim / .is-locked rules drive the timeline filter;
+                        folded-card display rules on .project-card > p and
+                        .project-metrics
 js/
   config.js             Runtime config (chatWorkerUrl)
-  main.js               Footer year
-  chatbot.js            Chat widget + markdown parser + cooldown; AVATAR / AVATAR_LABEL at top
+  main.js               Footer year + timeline↔cards filter (hover / click
+                        / Enter / Space). Auto-wires any stop whose
+                        data-experience matches ≥1 card
+  chatbot.js            Launcher open/close, chat widget, markdown parser,
+                        cooldown; AVATAR / AVATAR_LABEL at top
 assets/portrait.jpg     Committed web portrait (raw.jpg gitignored)
 worker/
-  worker.js             Cloudflare Worker — DeepSeek proxy, CORS, rate limit, SYSTEM_PROMPT
+  worker.js             Cloudflare Worker — DeepSeek proxy, CORS, rate limit,
+                        SYSTEM_PROMPT
   wrangler.toml         Worker config (ALLOWED_ORIGIN, MODEL)
 CLAUDE.md               Architecture notes for future sessions
 ```
@@ -335,10 +377,13 @@ CLAUDE.md               Architecture notes for future sessions
 - [ ] `<title>` + meta description updated
 - [ ] Hero name / location / tagline replaced
 - [ ] Portrait placed at `assets/portrait.jpg` (colour-shifted to new `--bg` if needed)
-- [ ] Every timeline stop generated from the user's resume — no template placeholders
-- [ ] Project cards generated from the user's resume
+- [ ] Every timeline stop generated from the user's resume — no template placeholders — with correct icon type (wrench / book / sparkle) and `data-experience` slug
+- [ ] `tabindex="0"` present on every stop that has ≥1 tied project card, absent elsewhere
+- [ ] Project cards generated from the user's resume, each with `data-experience` matching its stop
+- [ ] Hover + click + `Enter` / `Space` on an interactive stop filters the project grid correctly in local preview
+- [ ] Folded-card summaries are tight (they only appear on hover)
 - [ ] Connect section has the user's social URLs (unused rows deleted)
-- [ ] Chat greeting uses the user's bot name + avatar
+- [ ] Chat greeting uses the user's bot name + avatar; floating launcher + panel + nudge all show the right emoji and copy
 - [ ] `js/chatbot.js` `AVATAR` + `AVATAR_LABEL` match
 - [ ] `worker/worker.js` `SYSTEM_PROMPT` = user's resume + chosen bot persona
 - [ ] `worker/wrangler.toml` `ALLOWED_ORIGIN` includes the user's GitHub Pages URL
